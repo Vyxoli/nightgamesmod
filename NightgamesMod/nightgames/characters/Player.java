@@ -357,11 +357,16 @@ public class Player extends Character {
                 }
                 for (Action act : Global.getActions()) {
                     if (act.usable(this) && Global.getMatch().condition.allowAction(act, this, Global.getMatch())) {
-                        gui.addAction(act, this);
+                        if(act.getClass().getSimpleName().equals("SetTrap")) {
+                            gui.addTrap(act, this);
+                        } else
+                            gui.addAction(act, this);
                     }
                 }
+                gui.showActs(0);
             }
         }
+        
     }
 
     @Override

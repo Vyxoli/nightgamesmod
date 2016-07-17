@@ -88,6 +88,7 @@ public class GUI extends JFrame implements Observer {
     public Combat combat;
     private Player player;
     private ArrayList<ArrayList<SkillButton>> skills;
+    private ArrayList<ArrayList<JButton>> acts;
     JPanel commandPanel;
     private JTextPane textPane;
     private JLabel stamina;
@@ -582,11 +583,12 @@ public class GUI extends JFrame implements Observer {
         commandPanel.setBackground(GUIColors.bgDark);
         commandPanel.setPreferredSize(new Dimension(width, 120));
         commandPanel.setMinimumSize(new Dimension(width, 120));
-
+        commandPanel.setLayout(new GridLayout(0, 4, 2, 2));
         commandPanel.setBorder(new CompoundBorder());
         gamePanel.add(commandPanel);
 
         skills = new ArrayList<ArrayList<SkillButton>>();
+        acts = new ArrayList<ArrayList<JButton>>();
         createCharacter();
         setVisible(true);
         pack();
@@ -605,9 +607,7 @@ public class GUI extends JFrame implements Observer {
                         return;
                     }
                     JButton button = child instanceof JButton ? (JButton) child : ((SkillButton) child).getButton();
-                    if (button.isEnabled()) {
-                        choices.add(button);
-                    }
+                    choices.add(button);
                 }
                 char val = e.getKeyChar();
                 int index = Integer.valueOf(val) - Integer.valueOf('0');
@@ -631,8 +631,38 @@ public class GUI extends JFrame implements Observer {
             @Override
             public void keyReleased(KeyEvent e) {}
 
+            /**
+             * Add arrow key functionality to scroll through choices present
+             */
             @Override
-            public void keyPressed(KeyEvent e) {}
+            public void keyPressed(KeyEvent e) {
+                Component children[] = commandPanel.getComponents();
+                ArrayList<JButton> choices = new ArrayList<>();
+                for (Component child : children) {
+                    if (!(child instanceof JButton || child instanceof SkillButton)) {
+                        return;
+                    }
+                    JButton button = child instanceof JButton ? (JButton) child : ((SkillButton) child).getButton();
+                    choices.add(button);
+                }
+                JButton last = choices.get(choices.size()-1);
+                if(e.getKeyCode() == KeyEvent.VK_LEFT) {
+                    // either one of the last two buttons
+                    if(last.getText().equals("<-")) {
+                        last.doClick();
+                    } else {
+                        JButton ndlast = choices.get(choices.size()-2);
+                        if(ndlast.getText().equals("<-")) {
+                            ndlast.doClick();
+                        }
+                    }
+                } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    // last button
+                    if(last.getText().equals("->")) {
+                        last.doClick();
+                    }
+                }
+            }
         });
     }
 
@@ -998,6 +1028,7 @@ public class GUI extends JFrame implements Observer {
 
     public void clearCommand() {
         skills.clear();
+        acts.clear();
         commandPanel.removeAll();
         commandPanel.revalidate();
         commandPanel.repaint();
@@ -1010,14 +1041,12 @@ public class GUI extends JFrame implements Observer {
             if (skills.size() <= index) {
                 skills.add(new ArrayList<SkillButton>());
             }
-            if (skills.get(index).size() >= 25) {
+            if (skills.get(index).size() >= 9) {
                 index++;
             } else {
                 SkillButton btn = new SkillButton(action, com);
                 int others = skills.get(index).size();
-                if (index == 0 && others < 9) {
-                    btn.addIndex(others+1);
-                }
+                btn.addIndex(others%9+1);
                 skills.get(index).add(btn);
                 placed = true;
             }
@@ -1040,8 +1069,35 @@ public class GUI extends JFrame implements Observer {
     }
 
     public void addAction(Action action, Character user) {
-        commandPanel.add(new ActionButton(action, user));
+        if(acts.size() < 1)
+            acts.add(new ArrayList<JButton>());
+        acts.get(0).add(new ActionButton(action, user));
         Global.getMatch().pause();
+        commandPanel.revalidate();
+    }
+    
+    public void addTrap(Action action, Character user) {
+        if(acts.size() < 2) {
+            acts.add(new ArrayList<JButton>());
+            acts.get(0).add(new SetTrapButton());
+            acts.get(1).add(new BackToActsButton());
+        }
+        acts.get(1).add(new ActionButton(action, user));
+        Global.getMatch().pause();
+        commandPanel.revalidate();
+    }
+    
+    /**
+     * 
+     * @param type - 0 for normal, 1 for traps
+     */
+    public void showActs(int type) {
+        if(acts.size() > type) {
+            for(JButton b : acts.get(type)){
+                commandPanel.add(b);
+            }
+        }
+        commandPanel.repaint();
         commandPanel.revalidate();
     }
 
@@ -1269,7 +1325,7 @@ public class GUI extends JFrame implements Observer {
         }
         JPanel statsPanel = new JPanel();
 
-        JPanel currentStatusPanel = new JPanel();
+        JScrollPane currentStatusPanel = new JScrollPane();
         JPanel inventoryPane = new JPanel();
         inventoryPane.setSize(400, 1000);
 
@@ -1283,7 +1339,8 @@ public class GUI extends JFrame implements Observer {
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(statusPanel.getWidth(), 2));
         statusPanel.add(sep);
-        statusPanel.add(statsPanel);
+        JScrollPane scrollStat = new JScrollPane(statsPanel);
+        statusPanel.add(scrollStat);
 
         sep = new JSeparator();
         sep.setMaximumSize(new Dimension(statusPanel.getWidth(), 2));
@@ -1361,7 +1418,7 @@ public class GUI extends JFrame implements Observer {
             e.printStackTrace();
         }
 
-        currentStatusPanel.add(statusText);
+        currentStatusPanel.setViewportView(statusText);
         if (width < 720) {
             currentStatusPanel.setSize(new Dimension(height, width / 6));
             System.out.println("Oh god so tiny");
@@ -1605,6 +1662,42 @@ public class GUI extends JFrame implements Observer {
             addActionListener(arg0 -> {
                 commandPanel.removeAll();
                 showSkills(PageButton.this.page);
+            });
+        }
+    }
+    
+
+    private class SetTrapButton extends JButton {
+        /**
+         * 
+         */
+        private static final long serialVersionUID = 6939669795614363342L;
+
+        public SetTrapButton() {
+            super();
+            setFont(new Font("Baskerville Old Face", 0, 18));
+            setText("Set a Trap");
+            addActionListener(arg0 -> {
+                commandPanel.removeAll();
+                showActs(1);
+            });
+        }
+    }
+    
+
+    private class BackToActsButton extends JButton {
+        /**
+         * 
+         */
+        private static final long serialVersionUID = 6369925667804111906L;
+        
+        public BackToActsButton() {
+            super();
+            setFont(new Font("Baskerville Old Face", 0, 18));
+            setText("Back");
+            addActionListener(arg0 -> {
+                commandPanel.removeAll();
+                showActs(0);
             });
         }
     }
